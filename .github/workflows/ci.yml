@@ -15,6 +15,10 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - name: Verify custom-domain metadata
+        run: npm run verify
+        env:
+          SITE_URL: https://example.com
       - run: npm run verify
       - run: npm run deploy:check
         env:
