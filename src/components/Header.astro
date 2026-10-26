@@ -1,0 +1,14 @@
+---
+import { navigation, profile } from '../data/site';
+import Arrow from './Arrow.astro';
+---
+<header class="site-header wrap">
+  <a class="brand" href="/" aria-label="Chris Nightingale — home">
+    <span class="monogram" aria-hidden="true">cn<span>.</span></span>
+    <span class="brand-name">Chris Nightingale<span>Independent .NET developer</span></span>
+  </a>
+  <nav aria-label="Main navigation">
+    {navigation.map(item => <a href={item.href}>{item.label}</a>)}
+    <a class="nav-contact" href={`mailto:${profile.email}`}>Let’s talk <Arrow diagonal /></a>
+  </nav>
+</header>

@@ -1,0 +1,40 @@
+import assert from 'node:assert/strict';
+import { readFile, access, readdir } from 'node:fs/promises';
+import { join } from 'node:path';
+
+const html = await readFile('dist/index.html', 'utf8');
+const notFound = await readFile('dist/404.html', 'utf8');
+const sitemap = await readFile('dist/sitemap.xml', 'utf8');
+const robots = await readFile('dist/robots.txt', 'utf8');
+const config = JSON.parse(await readFile('wrangler.jsonc', 'utf8'));
+const expectedOrigin = new URL(process.env.SITE_URL || 'https://chrisnightingale-portfolio.chrisnightingaledev.workers.dev').origin;
+assert.equal((html.match(/<h1[\s>]/g) || []).length, 1, 'Exactly one homepage H1');
+assert.match(html, /lang="en-GB"/);
+assert.match(html, /name="description"/);
+assert.ok(html.includes(`rel="canonical" href="${expectedOrigin}/"`), 'Canonical URL follows SITE_URL');
+assert.ok(html.includes(`content="${expectedOrigin}/social-card.png"`), 'Absolute social image');
+assert.match(notFound, /name="robots" content="noindex, follow"/);
+assert.ok(!notFound.includes('rel="canonical"'), '404 must not be canonical');
+assert.ok(sitemap.includes(`<loc>${expectedOrigin}/</loc>`));
+assert.ok(!sitemap.includes('/404'));
+assert.ok(robots.includes(`Sitemap: ${expectedOrigin}/sitemap.xml`));
+const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]);
+assert.equal(ids.length, new Set(ids).size, 'IDs are unique');
+for (const match of html.matchAll(/href="\/?#([^"]+)"/g)) assert.ok(ids.includes(match[1]), `Anchor #${match[1]} exists`);
+for (const section of ['expertise', 'approach', 'about', 'contact']) assert.ok(ids.includes(section));
+assert.ok(html.includes('mailto:chrisnightingaledev@gmail.com'));
+assert.ok(html.includes('https://github.com/chrisnightingaledev'));
+assert.ok(html.includes('https://www.linkedin.com/in/christopher-nightingale-02ab1964/'));
+assert.ok(!/<script\b/i.test(html), 'Production homepage ships zero JavaScript');
+assert.ok(!/coming soon|placeholder|TODO/i.test(html), 'No unfinished UI copy');
+for (const match of html.matchAll(/(?:src|href)="(\/[^"#]+)"/g)) {
+  if (!match[1].startsWith('/#')) await access(join('dist', match[1]));
+}
+for (const file of ['favicon.svg','social-card.png','apple-touch-icon.png','_headers']) await access(join('dist', file));
+assert.equal(config.name, 'chrisnightingale-portfolio');
+assert.equal(config.assets.directory, './dist');
+assert.equal(config.assets.not_found_handling, '404-page');
+assert.ok(!config.main, 'No server-side Worker handler');
+const assets = await readdir('dist/_astro');
+assert.ok(!assets.some(name => name.endsWith('.js')), 'No JavaScript bundles');
+console.log('Build verification passed: metadata, canonical URL, sitemap, anchors, local assets, 404, zero client JS and Worker configuration.');
